@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prontuário IA — Assistente de Documentação Médica</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+</script>
 <style>
 :root {
   --bg: #f5f7fa;
@@ -422,6 +427,38 @@ textarea.ai-output {
 
 .output-area.visible { display: block; }
 
+.suggestions-area {
+  margin-top: 12px;
+  display: none;
+  padding: 12px;
+  background: linear-gradient(135deg, #fff8e1 0%, #fff3cd 100%);
+  border: 1px solid #f0c674;
+  border-radius: var(--radius);
+}
+.suggestions-area.visible { display: block; }
+
+.pdf-section {
+  margin-top: 32px;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 2px dashed var(--primary);
+  border-radius: var(--radius-lg);
+}
+.pdf-hint {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.btn-large {
+  font-size: 16px;
+  padding: 14px 28px;
+  font-weight: 700;
+}
+
 .output-label {
   display: flex;
   align-items: center;
@@ -718,13 +755,14 @@ footer strong { color: var(--warning); }
 .how-to a { color: var(--primary); }
 
 @media print {
-  header, .toolbar, .section-actions, .welcome-banner, .error-banner, .btn, footer .no-print { display: none !important; }
+  header, .toolbar, .section-actions, .welcome-banner, .error-banner, .btn, footer .no-print, .pdf-section { display: none !important; }
   body, .block, .section { background: white !important; box-shadow: none !important; border-color: #999 !important; }
-  .output-area, .suggestions-panel { display: block !important; }
+  .output-area { display: block !important; }
+  [data-suggestions-area] { display: none !important; }
   .provider-badge { background: white !important; border: 1px solid #999; }
-  .suggestions-panel { background: white !important; }
-  textarea { border: 1px solid #999 !important; }
+  textarea { border: 1px solid #999 !important; height: auto !important; min-height: 0 !important; overflow: visible !important; }
   main { padding: 0; }
+  h2 { font-size: 16pt; color: black !important; }
 }
 
 .copy-feedback {
@@ -917,6 +955,7 @@ footer strong { color: var(--warning); }
       <h3 class="section-title">📝 Anamnese</h3>
       <div class="section-actions">
         <button class="btn btn-primary" data-action="improve">✨ Melhorar</button>
+        <button class="btn btn-accent" data-action="suggestions">💡 Sugestões</button>
       </div>
     </div>
     <textarea data-input rows="4" placeholder="Escreva rapidamente: queixa, tempo, sintomas, contexto... o app detalha pra você."></textarea>
@@ -926,7 +965,13 @@ footer strong { color: var(--warning); }
         <span class="provider-badge" data-badge></span>
       </div>
       <textarea class="ai-output" data-output rows="8"></textarea>
-      <div class="suggestions-panel" data-suggestions></div>
+    </div>
+    <div class="suggestions-area" data-suggestions-area>
+      <div class="output-label">
+        <span>Sugestões adicionais (editável)</span>
+        <span class="provider-badge" data-badge-sug></span>
+      </div>
+      <textarea class="ai-output" data-output-suggestions rows="6"></textarea>
     </div>
     <div class="status" data-status></div>
   </div>
@@ -936,6 +981,7 @@ footer strong { color: var(--warning); }
       <h3 class="section-title">🩻 Exame Físico</h3>
       <div class="section-actions">
         <button class="btn btn-primary" data-action="improve">✨ Melhorar</button>
+        <button class="btn btn-accent" data-action="suggestions">💡 Sugestões</button>
       </div>
     </div>
     <textarea data-input rows="4" placeholder="Achados do exame físico em notas curtas (PA, FC, ausculta, abdome, etc.)"></textarea>
@@ -945,7 +991,13 @@ footer strong { color: var(--warning); }
         <span class="provider-badge" data-badge></span>
       </div>
       <textarea class="ai-output" data-output rows="8"></textarea>
-      <div class="suggestions-panel" data-suggestions></div>
+    </div>
+    <div class="suggestions-area" data-suggestions-area>
+      <div class="output-label">
+        <span>Sugestões adicionais (editável)</span>
+        <span class="provider-badge" data-badge-sug></span>
+      </div>
+      <textarea class="ai-output" data-output-suggestions rows="6"></textarea>
     </div>
     <div class="status" data-status></div>
   </div>
@@ -955,6 +1007,7 @@ footer strong { color: var(--warning); }
       <h3 class="section-title">🎯 Diagnóstico / Hipótese</h3>
       <div class="section-actions">
         <button class="btn btn-primary" data-action="improve">✨ Melhorar</button>
+        <button class="btn btn-accent" data-action="suggestions">💡 Sugestões</button>
         <button class="btn btn-accent" data-action="differentials">🧠 Diferenciais + Exames</button>
       </div>
     </div>
@@ -965,6 +1018,13 @@ footer strong { color: var(--warning); }
         <span class="provider-badge" data-badge></span>
       </div>
       <textarea class="ai-output" data-output rows="8"></textarea>
+    </div>
+    <div class="suggestions-area" data-suggestions-area>
+      <div class="output-label">
+        <span>Sugestões adicionais (editável)</span>
+        <span class="provider-badge" data-badge-sug></span>
+      </div>
+      <textarea class="ai-output" data-output-suggestions rows="6"></textarea>
     </div>
     <div class="output-area" data-differentials-area>
       <div class="output-label">
@@ -981,6 +1041,7 @@ footer strong { color: var(--warning); }
       <h3 class="section-title">💊 Conduta</h3>
       <div class="section-actions">
         <button class="btn btn-primary" data-action="improve">✨ Melhorar</button>
+        <button class="btn btn-accent" data-action="suggestions">💡 Sugestões</button>
         <button class="btn btn-accent" data-action="plan">💊 Sugerir plano completo</button>
       </div>
     </div>
@@ -991,6 +1052,13 @@ footer strong { color: var(--warning); }
         <span class="provider-badge" data-badge></span>
       </div>
       <textarea class="ai-output" data-output rows="8"></textarea>
+    </div>
+    <div class="suggestions-area" data-suggestions-area>
+      <div class="output-label">
+        <span>Sugestões adicionais (editável)</span>
+        <span class="provider-badge" data-badge-sug></span>
+      </div>
+      <textarea class="ai-output" data-output-suggestions rows="6"></textarea>
     </div>
     <div class="output-area" data-plan-area>
       <div class="output-label">
@@ -1006,17 +1074,26 @@ footer strong { color: var(--warning); }
     <div class="section-header">
       <h3 class="section-title">🧪 Exames Laboratoriais</h3>
       <div class="section-actions">
+        <button class="btn" data-action="uploadPdf">📎 Anexar PDF</button>
+        <input type="file" accept="application/pdf" hidden data-pdf-input="examesLab">
         <button class="btn btn-primary" data-action="improve">✨ Organizar</button>
+        <button class="btn btn-accent" data-action="suggestions">💡 Sugestões</button>
       </div>
     </div>
-    <textarea data-input rows="4" placeholder="Cole ou digite os resultados dos exames (Hb 12,5; leucócitos 8.200; glicose 145; ...)"></textarea>
+    <textarea data-input rows="4" placeholder="Cole ou digite os resultados dos exames (Hb 12,5; leucócitos 8.200; glicose 145; ...) ou anexe um PDF acima."></textarea>
     <div class="output-area">
       <div class="output-label">
         <span>Exames organizados com valores de referência</span>
         <span class="provider-badge" data-badge></span>
       </div>
       <textarea class="ai-output" data-output rows="10"></textarea>
-      <div class="suggestions-panel" data-suggestions></div>
+    </div>
+    <div class="suggestions-area" data-suggestions-area>
+      <div class="output-label">
+        <span>Sugestões adicionais (editável)</span>
+        <span class="provider-badge" data-badge-sug></span>
+      </div>
+      <textarea class="ai-output" data-output-suggestions rows="6"></textarea>
     </div>
     <div class="status" data-status></div>
   </div>
@@ -1025,20 +1102,34 @@ footer strong { color: var(--warning); }
     <div class="section-header">
       <h3 class="section-title">📡 Exames de Imagem</h3>
       <div class="section-actions">
+        <button class="btn" data-action="uploadPdf">📎 Anexar PDF</button>
+        <input type="file" accept="application/pdf" hidden data-pdf-input="examesImagem">
         <button class="btn btn-primary" data-action="improve">✨ Organizar</button>
+        <button class="btn btn-accent" data-action="suggestions">💡 Sugestões</button>
       </div>
     </div>
-    <textarea data-input rows="4" placeholder="Cole ou digite os laudos (Rx, US, TC, RM...)"></textarea>
+    <textarea data-input rows="4" placeholder="Cole ou digite os laudos (Rx, US, TC, RM...) ou anexe um PDF acima."></textarea>
     <div class="output-area">
       <div class="output-label">
         <span>Exames de imagem organizados</span>
         <span class="provider-badge" data-badge></span>
       </div>
       <textarea class="ai-output" data-output rows="10"></textarea>
-      <div class="suggestions-panel" data-suggestions></div>
+    </div>
+    <div class="suggestions-area" data-suggestions-area>
+      <div class="output-label">
+        <span>Sugestões adicionais (editável)</span>
+        <span class="provider-badge" data-badge-sug></span>
+      </div>
+      <textarea class="ai-output" data-output-suggestions rows="6"></textarea>
     </div>
     <div class="status" data-status></div>
   </div>
+</div>
+
+<div class="pdf-section">
+  <button class="btn btn-primary btn-large" id="generatePdfBtn">📄 GERAR PRONTUÁRIO EM PDF</button>
+  <p class="pdf-hint">Gera arquivo PDF com tudo que você preencheu, organizado por seção. As sugestões da IA, diferenciais e plano terapêutico <strong>NÃO</strong> são incluídos. Seções vazias são omitidas.</p>
 </div>
 
 <div class="toolbar">
@@ -1147,13 +1238,23 @@ const MedicalPrompts = {
 REGRAS ABSOLUTAS (NUNCA VIOLAR):
 1. Preserve 100% das informações clínicas fornecidas pelo médico. NÃO altere fatos, NÃO invente sintomas, sinais, exames, valores, datas, medicações ou condutas que não estejam no texto original.
 2. Se uma informação não foi fornecida, NÃO a invente. Apenas organize e detalhe o que foi escrito.
-3. Use terminologia médica técnica em português brasileiro (siglas consagradas: MV+, BNF, RHA+, RCR, SatO2, PA, FC, FR, TAX, Glasgow, etc.).
+3. Use terminologia médica técnica em português brasileiro (siglas consagradas: QP, HMA, HPP, HFS, EA, MV+, BNF, RHA+, RCR, SatO2, PA, FC, FR, TAX, Glasgow, etc.).
 4. Seja objetivo, claro e bem estruturado. Use tópicos, subtópicos e separadores quando apropriado.
 5. Baseie recomendações e condutas em UpToDate, BMJ, The Lancet, NEJM, JAMA, e em diretrizes do Ministério da Saúde do Brasil (quando existirem para a condição: HAS, DM, IVAS, dengue, tuberculosis, HAS gestacional, pré-natal, etc.).
 6. Para medicações, use o nome genérico (DCB) com dose, via, frequência e duração sugeridas. Inclua contraindicações principais quando relevantes.
-7. Ao final de cada resposta, sempre inclua uma seção intitulada exatamente "💡 SUGESTÕES ADICIONAIS" listando itens que costumam complementar aquela documentação (ex.: perguntas a fazer, exames a considerar, sinais a monitorar). NUNCA afirme que o paciente tem algo — apenas sugira o que costuma ser perguntado/registrado para aquele contexto clínico.
-8. Responda SEMPRE em português brasileiro.
-9. Não invista em floreios. Prontuário é documento técnico: direto, factual, auditável.`,
+7. Responda SEMPRE em português brasileiro.
+8. Não invista em floreios. Prontuário é documento técnico: direto, factual, auditável.
+
+REGRAS DE FORMATAÇÃO (NUNCA VIOLAR — TEXTO DEVE PODER SER COLADO DIRETAMENTE EM SISTEMAS HOSPITALARES):
+9. Use APENAS texto puro. NUNCA use markdown: PROIBIDO usar #, ##, ###, ####, #####, ######, **, __, *, _, ~~, [], (), >, | em cabeçalhos ou destaques.
+10. Escreva cabeçalhos de seção em MAIÚSCULAS seguidos de dois-pontos, na própria linha. Exemplo correto: "QUEIXA PRINCIPAL (QP):". ERRADO: "### Queixa Principal" ou "**QUEIXA PRINCIPAL**".
+11. Use APENAS "-" (hífen seguido de espaço) para itens de lista. NUNCA use asterisco para listas.
+12. Use APENAS "1." "2." "3." para listas numeradas (quando apropriado).
+13. Para exames laboratoriais, use EXATAMENTE este formato de tabela com "|" separador:
+    Componente | Resultado | Valor de Referência
+    Hemácias | 4,80 milhões/mm³ | 4,00 a 5,40 milhões/mm³
+14. Em exames, NUNCA inclua nome do paciente, nome do laboratório, data de coleta, número do convênio, ou qualquer informação administrativa. APENAS os resultados com seus valores de referência.
+15. Ao final de cada resposta de "Melhorar", NÃO inclua seção de sugestões (a IA mostrará as sugestões em botão separado quando solicitado).`,
 
   buildContext(ctx) {
     const parts = [];
@@ -1167,29 +1268,82 @@ REGRAS ABSOLUTAS (NUNCA VIOLAR):
   },
 
   buildAnamnesePrompt(rascunho, ctx) {
-    return `CONTEXTO DO PACIENTE:
+    return `CONTEXTO DO PACIENTE (apenas dados já preenchidos pelo médico — JAMAIS expandir):
 ${this.buildContext(ctx)}
 
-TAREFA: Reescreva e detalhe a ANAMNESE abaixo, mantendo 100% do conteúdo original. Organize em blocos quando possível: Queixa principal (QP), História da Moléstia Atual (HMA), Sintomas associados, Antecedentes da queixa, Hábitos (tabagismo, etilismo, atividade física, alimentação), História patológica pregressa, História familiar, História ocupacional, condições psicossociais, imunizações e rastreios. Use terminologia técnica. NÃO invente informações que não estejam no rascunho.
+TAREFA: Expanda o rascunho abaixo em uma ANAMNESE estruturada, técnica e pronta para colar em sistema hospitalar.
+
+ESTRUTURA OBRIGATÓRIA (use EXATAMENTE estes blocos nesta ordem, com cabeçalhos em MAIÚSCULAS + dois-pontos):
+
+QUEIXA PRINCIPAL (QP):
+[reescreva a queixa em UMA frase técnica, ex: "Dor torácica retroesternal com início há 24 horas."]
+
+HISTÓRIA DA MOLÉSTIA ATUAL (HMA):
+[detalhe: início (há quanto tempo, súbito ou insidioso), localização, irradiação, caráter (opressivo, em queimação, pontada, etc.), intensidade (EVA 0-10), duração (contínua ou em crises), fatores de melhora, fatores de piora, sintomas associados, medicações já utilizadas e resposta obtida. NUNCA invente dados que não estejam no rascunho.]
+
+HISTÓRIA OCUPACIONAL E PSICOSSOCIAL:
+[se houver informação no rascunho; senão, escreva "Não informado."]
+
+HISTÓRIA FAMILIAR:
+[se houver informação no rascunho; senão, escreva "Não informado."]
+
+HÁBITOS:
+[se houver informação no rascunho (tabagismo, etilismo, atividade física, alimentação); senão, escreva "Não informado."]
+
+OBSERVAÇÕES:
+[adicione aqui qualquer outro detalhe clínico relevante que esteja no rascunho mas não se encaixe nos blocos acima; se não houver, escreva "Sem observações adicionais."]
+
+NÃO EXPANDA os campos de antecedentes pessoais (HPP), medicações em uso, alergias, idade/sexo, aquisição ou via preferencial — esses já estão em campos separados do aplicativo e serão incluídos automaticamente. Apenas mencione-os brevemente no contexto se forem diretamente relevantes para a interpretação da queixa atual.
+
+NÃO inclua seção de sugestões ao final (elas serão geradas separadamente).
 
 RASCUNHO DO MÉDICO:
 "${rascunho}"
 
-ANAMNESE REESCRITA:`;
+ANAMNESE ESTRUTURADA:`;
   },
 
   buildExameFisicoPrompt(rascunho, ctx) {
     return `CONTEXTO DO PACIENTE:
 ${this.buildContext(ctx)}
 
-TAREFA: Reescreva o EXAME FÍSICO abaixo de forma estruturada. Siga a ordem clássica (Ectoscopia/Estado geral, Sinais vitais, Cabeça e pescoço, Cardiovascular, Respiratório, Abdome, Músculo-esquelético, Neurológico, Pele e anexos, Membros, Geniturinário se aplicável) ADAPTANDO ao que o médico registrou. Use terminologia técnica. Preserve TODOS os achados descritos. NÃO invente achados.
+TAREFA: Organize o exame físico abaixo em uma estrutura fixa, técnica e pronta para colar em sistema hospitalar. Use EXATAMENTE estes blocos (com cabeçalhos em MAIÚSCULAS + dois-pontos), na ordem listada, INCLUINDO APENAS os que tiverem informação registrada:
 
-Exemplos de redação adequada: "Lúcido, orientado, corado, hidratado, anictérico, acianótico, afebril.", "PA 130x80 mmHg, FC 88 bpm, FR 18 irpm, SatO2 96% AA, TAX 36,5°C.", "MV+ bilateralmente, sem RA.", "RCR 2T BNF, sem sopros.", "Abdome flácido, RHA+, indolor à palpação profunda, sem visceromegalias, sem sinais de peritonite."
+ESTADO GERAL / ECTOSCOPIA:
+[lúcido, orientado, corado, hidratado, anictérico, acianótico, afebril ou febril, facies, atitude, biotipo, estado nutricional, nível de consciência — preencha com o que o médico registrou]
+
+SINAIS VITAIS:
+[PA em mmHg, FC em bpm, FR em irpm, SatO2 em % (com ou sem O2), TAX em °C — em formato padronizado; se algum não foi aferido, escreva "Não aferido."]
+
+CARDIOVASCULAR:
+[ritmo, bulhas, sopros, pulsos, edema, tempo de enchimento capilar — preencha com o que foi registrado]
+
+RESPIRATÓRIO:
+[MV, RA, expansibilidade, percussão, tiragem, uso de musculatura acessória — preencha com o que foi registrado]
+
+ABDOME:
+[forma, RHA, palpação (flácido, tenso, doloroso), visceromegalias, sinais de peritonite, massas — preencha com o que foi registrado]
+
+NEUROLÓGICO:
+[Glasgow, pupilas (isocóricas, fotorreagentes), força, sensibilidade, reflexos, sinais meníngeos, coordenação — preencha APENAS se houver informação ou se for clinicamente relevante]
+
+PELE E ANEXOS:
+[coloração, lesões, icterícia, cianose, hidratação, turgor — preencha com o que foi registrado]
+
+MEMBROS:
+[edema, perfusão, pulsos periféricos, deformidades — preencha com o que foi registrado]
+
+OUTROS ACHADOS:
+[qualquer outro achado relevante que não se encaixe nos blocos acima; se não houver, escreva "Sem outros achados."]
+
+NÃO invente achados. Se o médico não registrou nada para um bloco, use "Não avaliado." para esse bloco.
+
+NÃO inclua sugestões ao final.
 
 RASCUNHO DO MÉDICO:
 "${rascunho}"
 
-EXAME FÍSICO REESCRITO:`;
+EXAME FÍSICO ESTRUTURADO:`;
   },
 
   buildDiagnosticoPrompt(rascunho, ctx) {
@@ -1202,18 +1356,45 @@ DADOS CLÍNICOS DISPONÍVEIS:
 - Anamnese: ${ctx.anamnese || 'não informada'}
 - Exame físico: ${ctx.exameFisico || 'não informado'}
 
-TAREFA: O médico NÃO preencheu o diagnóstico. Com base APENAS na anamnese e exame físico fornecidos (sem inventar dados), liste as 3-5 PRINCIPAIS HIPÓTESES DIAGNÓSTICAS em ordem decrescente de probabilidade. Para cada uma:
-  • Hipótese diagnóstica (com CID-10 quando aplicável)
-  • Justificativa clínica curta (1-2 frases, baseando-se nos achados)
-  • Exames complementares sugeridos para confirmação (laboratoriais e/ou de imagem)
-  • Nível de urgência da investigação (rotina / prioritário / emergência)
+TAREFA: O médico NÃO preencheu o diagnóstico. Com base APENAS na anamnese e exame físico fornecidos (sem inventar dados), apresente 3-5 PRINCIPAIS HIPÓTESES DIAGNÓSTICAS em ordem decrescente de probabilidade, no formato abaixo (use MAIÚSCULAS + dois-pontos para cabeçalhos, "-" para listas):
 
-Use raciocínio clínico atualizado (UpToDate, BMJ, NEJM) e diretrizes do Ministério da Saúde do Brasil quando aplicável. Ao final, adicione a seção "💡 SUGESTÕES ADICIONAIS" com pontos que poderiam refinar o raciocínio diagnóstico.`;
+HIPÓTESE 1: [nome da condição com CID-10 quando aplicável]
+- Justificativa: [1-2 frases baseadas nos achados]
+- Exames para confirmação: [lista de exames]
+- Urgência: [rotina / prioritário / emergência]
+
+HIPÓTESE 2: [nome]
+- Justificativa: ...
+- Exames para confirmação: ...
+- Urgência: ...
+
+[continue para 3 a 5 hipóteses no mesmo formato]
+
+REFERÊNCIAS:
+[UpToDate, BMJ, NEJM, diretrizes do Ministério da Saúde do Brasil, sociedades brasileiras — quando aplicável]
+
+NÃO inclua sugestões ao final.`;
     }
     return `CONTEXTO DO PACIENTE:
 ${this.buildContext(ctx)}
 
-TAREFA: O médico registrou o seguinte diagnóstico/hipótese. Detalhe-o tecnicamente: nomenclatura completa, CID-10 quando possível, critérios diagnósticos aplicáveis (ex.: critérios de Duke para endocardite, critérios de GOLD para DPOC, critérios de ACR para lúpus, etc.), classificação de gravidade (leve/moderado/grave) se houver critério, e referência de diretrizes (UpToDate, MOH, sociedades brasileiras). NÃO altere o diagnóstico dado pelo médico. NÃO afirme que o paciente tem o diagnóstico se o médico registrou como hipótese — preserve a incerteza.
+TAREFA: O médico registrou o seguinte diagnóstico/hipótese. Apresente-o tecnicamente, no formato abaixo (use MAIÚSCULAS + dois-pontos para cabeçalhos):
+
+DIAGNÓSTICO PRINCIPAL:
+[nomenclatura completa + CID-10 quando possível]
+
+CRITÉRIOS DIAGNÓSTICOS APLICÁVEIS:
+[critérios objetivos (Duke, GOLD, ACR, etc.) se aplicável à condição; se não houver critérios formais, escreva "Não aplicável."]
+
+CLASSIFICAÇÃO DE GRAVIDADE:
+[leve / moderado / grave — apenas se houver critério definido; se incerto, preserve como o médico registrou]
+
+REFERÊNCIAS / DIRETRIZES:
+[UpToDate, MOH, sociedades brasileiras]
+
+IMPORTANTE: NÃO altere o diagnóstico dado pelo médico. NÃO afirme que o paciente tem o diagnóstico se o médico registrou como hipótese — preserve a incerteza.
+
+NÃO inclua sugestões ao final.
 
 RASCUNHO DO MÉDICO:
 "${rascunho}"
@@ -1233,14 +1414,23 @@ DADOS CLÍNICOS:
 - Anamnese: ${anamnese}
 - Exame físico: ${exameFisico}
 
-TAREFA: Como não há diagnóstico registrado, liste 3-5 DIAGNÓSTICOS DIFERENCIAIS em ordem de probabilidade, baseando-se APENAS nos dados clínicos fornecidos. Para cada um:
-  • Diagnóstico diferencial
-  • Argumentos a favor (achados que sugerem)
-  • Argumentos contra (achados que falam contra)
-  • Exames complementares para diferenciar (laboratoriais e/ou imagem)
-  • Risco de não-tratamento (urgência)
+TAREFA: Como não há diagnóstico registrado, apresente 3-5 diagnósticos diferenciais em ordem de probabilidade, no formato abaixo (use MAIÚSCULAS + dois-pontos para cabeçalhos, "-" para listas):
 
-Use raciocínio clínico atualizado. Ao final, adicione "💡 SUGESTÕES ADICIONAIS".`;
+DIFERENCIAL 1: [nome da condição]
+- Argumentos a favor: [achados que sugerem]
+- Argumentos contra: [achados que falam contra]
+- Exames para diferenciar: [laboratoriais e/ou imagem]
+- Urgência de exclusão: [baixa / média / alta / muito alta]
+
+DIFERENCIAL 2: [nome]
+- Argumentos a favor: ...
+- Argumentos contra: ...
+- Exames para diferenciar: ...
+- Urgência de exclusão: ...
+
+[continue para 3 a 5 diferenciais no mesmo formato]
+
+Use raciocínio clínico atualizado (UpToDate, BMJ, NEJM) e diretrizes do Ministério da Saúde. NÃO inclua sugestões ao final.`;
     }
     return `CONTEXTO DO PACIENTE:
 ${this.buildContext(ctx)}
@@ -1252,14 +1442,23 @@ DADOS CLÍNICOS:
 - Anamnese: ${anamnese}
 - Exame físico: ${exameFisico}
 
-TAREFA: Liste 3-5 DIAGNÓSTICOS DIFERENCIAIS para o quadro acima, em ordem de probabilidade. Para cada um:
-  • Diagnóstico diferencial
-  • Argumentos a favor
-  • Argumentos contra
-  • Exames complementares para diferenciar
-  • Urgência de exclusão
+TAREFA: Apresente 3-5 diagnósticos diferenciais para o quadro acima, em ordem de probabilidade, no formato abaixo (use MAIÚSCULAS + dois-pontos para cabeçalhos, "-" para listas):
 
-Use raciocínio clínico atualizado (UpToDate, BMJ, NEJM) e diretrizes do MOH. Ao final, adicione "💡 SUGESTÕES ADICIONAIS".`;
+DIFERENCIAL 1: [nome da condição]
+- Argumentos a favor: [achados que sugerem]
+- Argumentos contra: [achados que falam contra]
+- Exames para diferenciar: [laboratoriais e/ou imagem]
+- Urgência de exclusão: [baixa / média / alta / muito alta]
+
+DIFERENCIAL 2: [nome]
+- Argumentos a favor: ...
+- Argumentos contra: ...
+- Exames para diferenciar: ...
+- Urgência de exclusão: ...
+
+[continue para 3 a 5 diferenciais no mesmo formato]
+
+Use raciocínio clínico atualizado (UpToDate, BMJ, NEJM) e diretrizes do MOH. NÃO inclua sugestões ao final.`;
   },
 
   buildCondutaPrompt(rascunho, ctx) {
@@ -1269,12 +1468,35 @@ ${this.buildContext(ctx)}
 DIAGNÓSTICO / HIPÓTESE:
 "${ctx.diagnostico || 'não informado'}"
 
-TAREFA: O médico registrou a seguinte conduta. Detalhe-a de forma estruturada: 1) Medicações (nome genérico, dose, via, frequência, duração — posologias baseadas em UpToDate, bulas e diretrizes do MOH); 2) Medidas não-farmacológicas; 3) Exames complementares a solicitar; 4) Encaminhamentos; 5) Retorno programado; 6) Critérios de internação se aplicável; 7) Sinais de alarme para retorno imediato. Preserve 100% do que o médico escreveu. Use terminologia técnica.
+TAREFA: O médico registrou a seguinte conduta. Apresente-a de forma estruturada, técnica, no formato abaixo (use MAIÚSCULAS + dois-pontos para cabeçalhos, "-" para listas). Preserve 100% do que o médico escreveu:
+
+MEDICAÇÕES:
+- [princípio ativo, dose, via, frequência, duração — posologias baseadas em UpToDate, bulas e diretrizes do MOH]
+
+MEDIDAS NÃO-FARMACOLÓGICAS:
+- [dieta, hidratação, repouso, posicionamentos, etc.]
+
+EXAMES A SOLICITAR:
+- [exames complementares]
+
+ENCRAMINHAMENTOS:
+- [especialidades, quando indicar]
+
+RETORNO PROGRAMADO:
+- [quando reavaliar ambulatorialmente]
+
+CRITÉRIOS DE INTERNAÇÃO:
+- [se aplicável; senão, escreva "Não aplicável."]
+
+SINAIS DE ALARME PARA RETORNO IMEDIATO:
+- [orientar o paciente a procurar emergência]
+
+NÃO inclua sugestões ao final.
 
 RASCUNHO DO MÉDICO:
 "${rascunho}"
 
-CONDUTA DETALHADA:`;
+CONDUTA ESTRUTURADA:`;
   },
 
   buildPlanoSugeridoPrompt(ctx) {
@@ -1289,18 +1511,36 @@ DADOS CLÍNICOS:
 - Exame físico: ${ctx.exameFisico || 'não informado'}
 - Conduta já registrada: ${ctx.conduta || 'não informada'}
 
-TAREFA: Sugira o MELHOR PLANO TERAPÊUTICO POSSÍVEL baseado no diagnóstico acima, organizado em:
+TAREFA: Sugira o MELHOR PLANO TERAPÊUTICO POSSÍVEL baseado no diagnóstico acima, no formato abaixo (use MAIÚSCULAS + dois-pontos para cabeçalhos, "-" para listas):
 
-1. **MEDICAÇÕES DE 1ª LINHA** (princípio ativo, dose, via, frequência, duração, ajuste se insuficiência renal/hepática)
-2. **ALTERNATIVAS** (em caso de contraindicação, alergia ou falha)
-3. **MEDIDAS NÃO-FARMACOLÓGICAS** (dieta, atividade física, posicionamento, hidratação, suspensão de fatores desencadeantes, monitoramento domiciliar)
-4. **EXAMES COMPLEMENTARES** sugeridos (que ainda não tenham sido pedidos)
-5. **ENCAMINHAMENTOS** (especialidades, quando indicar)
-6. **CRITÉRIOS DE INTERNAÇÃO** (se aplicável — sinais de gravidade, comorbidades descompensadas, risco social)
-7. **RETORNO E SEGUIMENTO** (quando reavaliar ambulatorialmente)
-8. **SINAIS DE ALARME** (orientar o paciente a procurar emergência)
+MEDICAÇÕES DE 1ª LINHA:
+- [princípio ativo, dose, via, frequência, duração, ajuste se insuficiência renal/hepática]
 
-Baseie-se em UpToDate, BMJ, NEJM, JAMA e diretrizes do Ministério da Saúde do Brasil (HAS 2020, DM 2020, Dengue 2024, Tuberculose 2019, Pré-natal 2022, etc.). Use nomes genéricos (DCB). Ao final, adicione "💡 SUGESTÕES ADICIONAIS".`;
+ALTERNATIVAS (em caso de contraindicação, alergia ou falha):
+- [medicações substitutas]
+
+MEDIDAS NÃO-FARMACOLÓGICAS:
+- [dieta, atividade física, posicionamento, hidratação, suspensão de fatores desencadeantes, monitoramento domiciliar]
+
+EXAMES COMPLEMENTARES sugeridos:
+- [que ainda não tenham sido pedidos]
+
+ENCRAMINHAMENTOS:
+- [especialidades, quando indicar]
+
+CRITÉRIOS DE INTERNAÇÃO:
+- [se aplicável — sinais de gravidade, comorbidades descompensadas, risco social; senão, escreva "Não aplicável."]
+
+RETORNO E SEGUIMENTO:
+- [quando reavaliar ambulatorialmente]
+
+SINAIS DE ALARME:
+- [orientar o paciente a procurar emergência]
+
+REFERÊNCIAS:
+[UpToDate, BMJ, NEJM, JAMA, diretrizes do Ministério da Saúde do Brasil — HAS 2020, DM 2020, Dengue 2024, Tuberculose 2019, Pré-natal 2022, etc.]
+
+NÃO inclua sugestões ao final.`;
   },
 
   buildExamesLabPrompt(rascunho, ctx) {
@@ -1310,7 +1550,40 @@ ${this.buildContext(ctx)}
 QUADRO CLÍNICO:
 "${ctx.diagnostico || ctx.anamnese || 'não informado'}"
 
-TAREFA: Organize os EXAMES LABORATORIAIS abaixo em formato estruturado. Para cada exame listado: nome, valor descrito, valor de referência (quando aplicável), interpretação breve (normal/alterado). Preserve 100% dos exames e valores descritos. NÃO invente exames, valores ou interpretações.
+TAREFA: Organize os EXAMES LABORATORIAIS abaixo em formato limpo, SEM markdown, SEM incluir nome do paciente, nome do laboratório, data de coleta, número do convênio ou qualquer informação administrativa. APENAS os resultados com seus valores de referência.
+
+Use EXATAMENTE este formato (use MAIÚSCULAS + dois-pontos para cabeçalhos, "|" para separar colunas):
+
+[NOME DO EXAME PRINCIPAL EM MAIÚSCULAS]
+
+[GRUPO / SUBEXAME EM MAIÚSCULAS]
+Componente | Resultado | Valor de Referência
+[componente] | [valor com unidade] | [referência]
+[componente] | [valor com unidade] | [referência]
+...
+
+[OUTRO GRUPO / SUBEXAME EM MAIÚSCULAS]
+Componente | Resultado | Valor de Referência
+[componente] | [valor com unidade] | [referência]
+...
+
+EXEMPLO (hemograma):
+HEMOGRAMA COMPLETO
+
+ERITROGRAMA (SÉRIE VERMELHA)
+Componente | Resultado | Valor de Referência
+Hemácias | 4,80 milhões/mm³ | 4,00 a 5,40 milhões/mm³
+Hemoglobina | 14,2 g/dL | 12,0 a 16,0 g/dL
+Hematócrito | 42,0 % | 36,0 a 48,0 %
+
+LEUCOGRAMA (SÉRIE BRANCA)
+Componente | Resultado | Valor de Referência
+Leucócitos Totais | 6.500 /mm³ | 4.000 a 11.000 /mm³
+...
+
+Preserve 100% dos exames e valores descritos. NÃO invente exames, valores ou interpretações. Se um valor de referência não foi fornecido, escreva "não informado" na coluna correspondente.
+
+NÃO inclua sugestões ao final.
 
 RASCUNHO DO MÉDICO:
 "${rascunho}"
@@ -1325,12 +1598,151 @@ ${this.buildContext(ctx)}
 QUADRO CLÍNICO:
 "${ctx.diagnostico || ctx.anamnese || 'não informado'}"
 
-TAREFA: Organize os EXAMES DE IMAGEM abaixo em formato estruturado: tipo de exame, data (se mencionada), achados descritos, impressão/conclusão quando fornecida. Preserve 100% do conteúdo original. NÃO invente achados nem conclusões.
+TAREFA: Organize os EXAMES DE IMAGEM abaixo em formato de laudo limpo, SEM markdown, SEM incluir nome do paciente, nome do laboratório/hospital, data do exame, nome do médico solicitante, número do convênio ou qualquer informação administrativa. APENAS o conteúdo clínico do laudo.
+
+Use EXATAMENTE este formato (use MAIÚSCULAS + dois-pontos para cabeçalhos):
+
+TIPO DO EXAME (RX / US / TC / RM / OUTRO):
+[descrição]
+
+TÉCNICA:
+[descrever técnica utilizada, se houver; senão, escreva "Não informada."]
+
+ACHADOS:
+[principais achados do exame]
+
+IMPRESSÃO / CONCLUSÃO:
+[conclusão do laudo, se fornecida; senão, escreva "Não fornecida."]
+
+OBSERVAÇÕES:
+[qualquer observação adicional relevante; se não houver, escreva "Sem observações."]
+
+Preserve 100% do conteúdo clínico original. NÃO invente achados nem conclusões.
+
+NÃO inclua sugestões ao final.
 
 RASCUNHO DO MÉDICO:
 "${rascunho}"
 
 EXAMES DE IMAGEM ORGANIZADOS:`;
+  },
+
+  // ============================================================
+  // PROMPTS DE SUGESTÕES (botão separado, sem conteúdo principal)
+  // ============================================================
+  buildSugestoesAnamnesePrompt(rascunho, ctx) {
+    return `CONTEXTO DO PACIENTE:
+${this.buildContext(ctx)}
+
+RASCUNHO DE ANAMNESE DO MÉDICO:
+"${rascunho}"
+
+TAREFA: Com base no rascunho acima, gere APENAS uma lista de PERGUNTAS ADICIONAIS e PONTOS A COMPLEMENTAR que costumam refinar a anamnese para este contexto clínico. NÃO reescreva a anamnese. APENAS liste sugestões.
+
+Use EXATAMENTE este formato (use "-" para cada item, sem cabeçalhos extras):
+
+- [sugestão 1: pergunta ou ponto a complementar]
+- [sugestão 2: ...]
+- [sugestão 3: ...]
+
+Sugira itens como: perguntas de anamnese dirigida que costumam ficar em branco (caracterização detalhada de sintomas, fatores de risco, antecedentes relevantes, hábitos, contexto psicossocial, fatores de melhora/piora, medicações já tentadas, sinais de alarme, etc.).
+
+Baseie-se em protocolos clínicos atualizados (UpToDate, BMJ, MOH) quando aplicável.`;
+  },
+
+  buildSugestoesExameFisicoPrompt(rascunho, ctx) {
+    return `CONTEXTO DO PACIENTE:
+${this.buildContext(ctx)}
+
+RASCUNHO DE EXAME FÍSICO DO MÉDICO:
+"${rascunho}"
+
+TAREFA: Gere APENAS uma lista de ACHADOS ADICIONAIS DO EXAME FÍSICO que costumam complementar este contexto clínico. NÃO reescreva o exame físico. APENAS liste sugestões.
+
+Use EXATAMENTE este formato (use "-" para cada item):
+
+- [sugestão 1: sistema ou achado a examinar/registrar]
+- [sugestão 2: ...]
+- [sugestão 3: ...]
+
+Sugira itens como: sinais vitais que costumam ser esquecidos, manobras semiológicas relevantes para a queixa, exames específicos (fundo de olho, otoscopia, linfonodos, exame neurológico sumário, etc.) que podem agregar valor diagnóstico, sinais de gravidade a pesquisar.
+
+Baseie-se em protocolos clínicos atualizados quando aplicável.`;
+  },
+
+  buildSugestoesDiagnosticoPrompt(rascunho, ctx) {
+    return `CONTEXTO DO PACIENTE:
+${this.buildContext(ctx)}
+
+DIAGNÓSTICO / HIPÓTESE REGISTRADA:
+"${ctx.diagnostico || (rascunho || 'não informado')}"
+
+TAREFA: Gere APENAS uma lista de PONTOS PARA REFINAR O RACIOCÍNIO DIAGNÓSTICO. NÃO reescreva o diagnóstico. APENAS liste sugestões.
+
+Use EXATAMENTE este formato (use "-" para cada item):
+
+- [sugestão 1: ponto a considerar]
+- [sugestão 2: ...]
+- [sugestão 3: ...]
+
+Sugira itens como: critérios diagnósticos formais a aplicar, diagnósticos diferenciais adicionais a considerar, exames complementares para confirmar/descartar hipóteses, sinais clínicos a reavaliar, comorbidades a investigar, escores de gravidade aplicáveis, fontes (UpToDate, BMJ, NEJM, MOH).`;
+  },
+
+  buildSugestoesCondutaPrompt(rascunho, ctx) {
+    return `CONTEXTO DO PACIENTE:
+${this.buildContext(ctx)}
+
+DIAGNÓSTICO / HIPÓTESE:
+"${ctx.diagnostico || 'não informado'}"
+
+CONDUTA REGISTRADA PELO MÉDICO:
+"${rascunho}"
+
+TAREFA: Gere APENAS uma lista de PONTOS PARA COMPLEMENTAR A CONDUTA. NÃO reescreva a conduta. APENAS liste sugestões.
+
+Use EXATAMENTE este formato (use "-" para cada item):
+
+- [sugestão 1: ponto a considerar]
+- [sugestão 2: ...]
+- [sugestão 3: ...]
+
+Sugira itens como: posologias detalhadas (dose/via/frequência/duração) das medicações prescritas, alternativas em caso de contraindicação ou alergia, medidas não-farmacológicas, exames a solicitar, critérios de internação, sinais de alarme para retorno, retorno programado, orientações ao paciente.`;
+  },
+
+  buildSugestoesExamesLabPrompt(rascunho, ctx) {
+    return `CONTEXTO DO PACIENTE:
+${this.buildContext(ctx)}
+
+EXAMES LABORATORIAIS REGISTRADOS:
+"${rascunho}"
+
+TAREFA: Gere APENAS uma lista de EXAMES LABORATORIAIS ADICIONAIS que costumam complementar a investigação deste contexto clínico. NÃO reescreva os exames. APENAS liste sugestões.
+
+Use EXATAMENTE este formato (use "-" para cada item):
+
+- [sugestão 1: exame]
+- [sugestão 2: ...]
+- [sugestão 3: ...]
+
+Sugira exames complementares, marcadores específicos, exames de função (renal, hepática, tireoidiana), sorologias, exames microbiológicos, gasometria, etc. — relevantes para o quadro clínico descrito.`;
+  },
+
+  buildSugestoesExamesImagemPrompt(rascunho, ctx) {
+    return `CONTEXTO DO PACIENTE:
+${this.buildContext(ctx)}
+
+EXAMES DE IMAGEM REGISTRADOS:
+"${rascunho}"
+
+TAREFA: Gere APENAS uma lista de EXAMES DE IMAGEM ADICIONAIS que costumam complementar a investigação deste contexto clínico. NÃO reescreva os exames. APENAS liste sugestões.
+
+Use EXATAMENTE este formato (use "-" para cada item):
+
+- [sugestão 1: exame]
+- [sugestão 2: ...]
+- [sugestão 3: ...]
+
+Sugira exames como RX, US, TC, RM, endoscopia, ecocardiograma, etc. — relevantes para o quadro clínico descrito. Inclua o tipo de exame e, quando aplicável, a região anatômica ou a indicação.`;
   }
 };
 
@@ -1648,6 +2060,17 @@ function setButtonState(sectionName, action, label, disabled) {
   }
 }
 
+function cleanOutput(text) {
+  if (!text) return text || '';
+  return String(text)
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1$2')
+    .replace(/^[-*]\s+/gm, '- ')
+    .trim();
+}
+
 function getContext() {
   const checked = (group) => $$('input[data-group="' + group + '"]:checked').map(el => el.value).join(', ');
   return {
@@ -1678,45 +2101,14 @@ function clearStatus(section) {
   el.innerHTML = '';
 }
 
-function extractSuggestions(text) {
-  if (!text) return null;
-  const patterns = [
-    /💡\s*SUGEST[ÕO]ES\s*ADICIONAIS[:\s]*(.*)$/is,
-    /\*\*💡\s*SUGEST[ÕO]ES\s*ADICIONAIS\*\*[:\s]*(.*)$/is,
-    /SUGEST[ÕO]ES\s*ADICIONAIS[:\s]*(.*)$/is
-  ];
-  for (let i = 0; i < patterns.length; i++) {
-    const m = text.match(patterns[i]);
-    if (m && m[1]) return m[1].trim();
-  }
-  return null;
-}
-
-function stripSuggestions(text) {
-  if (!text) return text || '';
-  return text
-    .replace(/💡\s*SUGEST[ÕO]ES\s*ADICIONAIS[:\s]*.*$/is, '')
-    .replace(/\*\*💡\s*SUGEST[ÕO]ES\s*ADICIONAIS\*\*[:\s]*.*$/is, '')
-    .replace(/SUGEST[ÕO]ES\s*ADICIONAIS[:\s]*.*$/is, '')
-    .trim();
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function showOutput(section, content, providerBadge) {
   const out = $('[data-section="' + section + '"] [data-output]');
-  const sug = $('[data-section="' + section + '"] [data-suggestions]');
   const area = $('[data-section="' + section + '"] .output-area');
-  if (out) out.value = stripSuggestions(content);
-  if (sug) {
-    const s = extractSuggestions(content);
-    if (s) {
-      sug.innerHTML = '<strong>💡 Sugestões adicionais:</strong><br>' + escapeHtml(s).replace(/\n/g, '<br>');
-      sug.classList.add('visible');
-    } else { sug.classList.remove('visible'); sug.innerHTML = ''; }
-  }
+  if (out) out.value = cleanOutput(content);
   if (area) area.classList.add('visible');
   if (providerBadge) {
     const b = $('[data-section="' + section + '"] [data-badge]');
@@ -1724,10 +2116,21 @@ function showOutput(section, content, providerBadge) {
   }
 }
 
+function showSuggestionsOutput(section, content, providerBadge) {
+  const out = $('[data-section="' + section + '"] [data-output-suggestions]');
+  const area = $('[data-section="' + section + '"] [data-suggestions-area]');
+  if (out) out.value = cleanOutput(content);
+  if (area) area.classList.add('visible');
+  if (providerBadge) {
+    const b = $('[data-section="' + section + '"] [data-badge-sug]');
+    if (b) b.textContent = 'Respondido por: ' + providerBadge;
+  }
+}
+
 function showDifferentialOutput(section, content, providerBadge) {
   const out = $('[data-section="' + section + '"] [data-output-diff]');
   const area = $('[data-section="' + section + '"] [data-differentials-area]');
-  if (out) out.value = content;
+  if (out) out.value = cleanOutput(content);
   if (area) area.classList.add('visible');
   if (providerBadge) {
     const b = $('[data-section="' + section + '"] [data-badge-diff]');
@@ -1738,7 +2141,7 @@ function showDifferentialOutput(section, content, providerBadge) {
 function showPlanOutput(section, content, providerBadge) {
   const out = $('[data-section="' + section + '"] [data-output-plan]');
   const area = $('[data-section="' + section + '"] [data-plan-area]');
-  if (out) out.value = content;
+  if (out) out.value = cleanOutput(content);
   if (area) area.classList.add('visible');
   if (providerBadge) {
     const b = $('[data-section="' + section + '"] [data-badge-plan]');
@@ -1784,6 +2187,74 @@ async function handleImprove(section) {
     showErrorModal('Erro ao processar ' + section, (err && err.stack) ? err.stack + '\n\nMensagem: ' + err.message : String(err));
     console.error('[Prontuário IA] handleImprove error:', err);
   }
+}
+
+async function handleSuggestions(section) {
+  setButtonState(section, 'suggestions', '⏳ Sugerindo...', true);
+  try {
+    if (!guardOrchestrator()) { setButtonState(section, 'suggestions', null, false); return; }
+    if (!orchestrator.hasAnyKey()) { setButtonState(section, 'suggestions', null, false); openSettingsModal(true); return; }
+    const ctx = getContext();
+    const inputEl = $('[data-section="' + section + '"] [data-input]');
+    const text = inputEl ? inputEl.value.trim() : '';
+    if (!text) { setStatus(section, 'error', '⚠️ Preencha o campo antes de pedir sugestões.'); setButtonState(section, 'suggestions', null, false); return; }
+    const builderName = {
+      anamnese: 'buildSugestoesAnamnesePrompt',
+      exameFisico: 'buildSugestoesExameFisicoPrompt',
+      diagnostico: 'buildSugestoesDiagnosticoPrompt',
+      conduta: 'buildSugestoesCondutaPrompt',
+      examesLab: 'buildSugestoesExamesLabPrompt',
+      examesImagem: 'buildSugestoesExamesImagemPrompt'
+    }[section];
+    if (!builderName || typeof MedicalPrompts[builderName] !== 'function') { setButtonState(section, 'suggestions', null, false); return; }
+    const prompt = MedicalPrompts[builderName](text, ctx);
+    await runAI(section, prompt,
+      (content, provider) => { showSuggestionsOutput(section, content, provider); setStatus(section, 'success', '✓ Sugestões geradas.'); },
+      () => setStatus(section, 'loading', '<span class="spinner"></span> Gerando sugestões...')
+    );
+    setButtonState(section, 'suggestions', null, false);
+  } catch (err) {
+    setButtonState(section, 'suggestions', null, false);
+    setStatus(section, 'error', '❌ Erro: ' + (err && err.message ? err.message : 'desconhecido'));
+    showErrorModal('Erro ao gerar sugestões', (err && err.stack) ? err.stack + '\n\nMensagem: ' + err.message : String(err));
+    console.error('[Prontuário IA] handleSuggestions error:', err);
+  }
+}
+
+async function handlePdfUpload(section) {
+  const input = $('[data-pdf-input="' + section + '"]');
+  if (!input) return;
+  input.click();
+  input.onchange = async (ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    if (!window.pdfjsLib) {
+      showErrorModal('Biblioteca PDF não carregou', 'A biblioteca pdf.js não foi carregada. Verifique sua conexão com a internet e recarregue a página.');
+      return;
+    }
+    setStatus(section, 'loading', '<span class="spinner"></span> Lendo PDF...');
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(it => it.str).join(' ') + '\n';
+      }
+      const inputEl = $('[data-section="' + section + '"] [data-input]');
+      if (inputEl) {
+        const current = inputEl.value.trim();
+        inputEl.value = current ? current + '\n\n' + fullText.trim() : fullText.trim();
+      }
+      setStatus(section, 'success', '✓ PDF lido: ' + pdf.numPages + ' página(s). Texto extraído para o campo. Agora clique em ✨ Organizar.');
+    } catch (err) {
+      setStatus(section, 'error', '❌ Erro ao ler PDF: ' + (err && err.message ? err.message : 'desconhecido'));
+      showErrorModal('Erro ao ler PDF', (err && err.stack) ? err.stack + '\n\nMensagem: ' + err.message : String(err));
+    } finally {
+      input.value = '';
+    }
+  };
 }
 
 async function handleDifferentials(section) {
@@ -1922,7 +2393,7 @@ function getSectionValue(section, type) {
     'plan': '[data-output-plan]'
   }[type];
   const el = $('[data-section="' + section + '"] ' + sel);
-  return (el && el.value) || '';
+  return cleanOutput((el && el.value) || '');
 }
 
 function buildFullProntuario() {
@@ -2097,7 +2568,7 @@ function clearAll() {
   $$('input[type="text"], textarea').forEach(el => el.value = '');
   $$('input[type="checkbox"]').forEach(el => el.checked = false);
   $$('.output-area').forEach(el => el.classList.remove('visible'));
-  $$('.suggestions-panel').forEach(el => { el.classList.remove('visible'); el.innerHTML = ''; });
+  $$('.suggestions-area').forEach(el => el.classList.remove('visible'));
   $$('.status').forEach(el => { el.className = 'status'; el.innerHTML = ''; });
   $$('.provider-badge').forEach(el => el.textContent = '');
   showCopyFeedback();
@@ -2218,15 +2689,172 @@ function updateProtocolBadge() {
   }
 }
 
+function getSectionText(sectionName) {
+  const out = $('[data-section="' + sectionName + '"] [data-output]');
+  if (out && out.value && out.value.trim()) return out.value.trim();
+  const input = $('[data-section="' + sectionName + '"] [data-input]');
+  if (input && input.value && input.value.trim()) return input.value.trim();
+  return '';
+}
+
+function generatePDF() {
+  const btn = $('#generatePdfBtn');
+  if (!btn) return;
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    showErrorModal('Biblioteca PDF não carregou', 'A biblioteca jsPDF não foi carregada. Verifique sua conexão com a internet e recarregue a página.');
+    return;
+  }
+  const anamneseText = getSectionText('anamnese');
+  if (!anamneseText) {
+    showErrorModal('Anamnese vazia', 'Você precisa preencher o campo <strong>Anamnese</strong> antes de gerar o PDF. A anamnese é a parte mais importante do prontuário e é obrigatória.');
+    const anamneseSection = $('[data-section="anamnese"]');
+    if (anamneseSection) {
+      anamneseSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const ta = anamneseSection.querySelector('[data-input]');
+      if (ta) setTimeout(() => ta.focus(), 400);
+    }
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '⏳ Gerando PDF...';
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 18;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    const sections = [
+      { title: 'IDENTIFICAÇÃO & ANTECEDENTES', lines: [
+        ['Idade/Sexo', ($('#idadeSexo') || {}).value || ''],
+        ['Alergias', ($('#alergias') || {}).value || ''],
+        ['Antecedentes', ($('#antecedentes') || {}).value || ''],
+        ['Medicações em uso', ($('#medicacoes') || {}).value || ''],
+        ['Aquisição', $$('input[data-group="aquisicao"]:checked').map(el => el.value).join(', ') || ''],
+        ['Via preferencial', $$('input[data-group="via"]:checked').map(el => el.value).join(', ') || '']
+      ].filter(([_, v]) => v && String(v).trim()) },
+      { title: 'ANAMNESE', content: getSectionText('anamnese') },
+      { title: 'EXAME FÍSICO', content: getSectionText('exameFisico') },
+      { title: 'DIAGNÓSTICO / HIPÓTESE', content: getSectionText('diagnostico') },
+      { title: 'CONDUTA', content: getSectionText('conduta') },
+      { title: 'EXAMES LABORATORIAIS', content: getSectionText('examesLab') },
+      { title: 'EXAMES DE IMAGEM', content: getSectionText('examesImagem') }
+    ];
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('PRONTUÁRIO', pageW / 2, y, { align: 'center' });
+    y += 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    doc.text('Data: ' + dd + '/' + mm + '/' + yyyy + '   Hora: ' + hh + ':' + min, pageW / 2, y, { align: 'center' });
+    doc.setTextColor(0);
+    y += 8;
+
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, pageW - margin, y);
+    y += 8;
+
+    const ensureSpace = (needed) => {
+      if (y + needed > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    const writeWrapped = (text, fontSize, font) => {
+      doc.setFont('helvetica', font || 'normal');
+      doc.setFontSize(fontSize);
+      const lineH = fontSize * 0.42;
+      const lines = doc.splitTextToSize(text, contentW);
+      for (const line of lines) {
+        ensureSpace(lineH);
+        doc.text(line, margin, y);
+        y += lineH;
+      }
+    };
+
+    for (const sec of sections) {
+      let hasContent = false;
+      if (sec.lines) {
+        hasContent = sec.lines.length > 0;
+      } else if (sec.content) {
+        hasContent = sec.content.trim().length > 0;
+      }
+      if (!hasContent) continue;
+
+      ensureSpace(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text(sec.title, margin, y);
+      y += 6;
+      doc.setLineWidth(0.2);
+      doc.setDrawColor(180);
+      doc.line(margin, y, pageW - margin, y);
+      y += 4;
+      doc.setDrawColor(0);
+
+      if (sec.lines) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        for (const [label, value] of sec.lines) {
+          const text = label + ': ' + value;
+          const lines = doc.splitTextToSize(text, contentW);
+          for (const line of lines) {
+            ensureSpace(5);
+            doc.text(line, margin, y);
+            y += 4.5;
+          }
+        }
+      } else {
+        writeWrapped(sec.content, 10.5, 'normal');
+      }
+      y += 4;
+    }
+
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text('Página ' + p + ' de ' + totalPages, pageW / 2, pageH - 8, { align: 'center' });
+      doc.setTextColor(0);
+    }
+
+    const fileName = 'prontuario_' + yyyy + '-' + mm + '-' + dd + '.pdf';
+    doc.save(fileName);
+  } catch (err) {
+    showErrorModal('Erro ao gerar PDF', (err && err.stack) ? err.stack + '\n\nMensagem: ' + err.message : String(err));
+    console.error('[Prontuário IA] generatePDF error:', err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📄 GERAR PRONTUÁRIO EM PDF';
+  }
+}
+
 function bindEvents() {
   $$('.section').forEach(sec => {
     const sectionName = sec.dataset.section;
     sec.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (ev) => {
         const action = btn.dataset.action;
         if (action === 'improve') handleImprove(sectionName);
         else if (action === 'differentials') handleDifferentials(sectionName);
         else if (action === 'plan') handlePlan(sectionName);
+        else if (action === 'suggestions') handleSuggestions(sectionName);
+        else if (action === 'uploadPdf') { ev.preventDefault(); handlePdfUpload(sectionName); }
       });
     });
   });
@@ -2302,6 +2930,9 @@ function bindEvents() {
 
   const welcomeHowTo = $('#welcomeHowTo');
   if (welcomeHowTo) welcomeHowTo.addEventListener('click', (e) => { e.preventDefault(); openSettingsModal(true); });
+
+  const generatePdfBtn = $('#generatePdfBtn');
+  if (generatePdfBtn) generatePdfBtn.addEventListener('click', generatePDF);
 
   const corsCopy = $('#corsCopyUrl');
   if (corsCopy) corsCopy.addEventListener('click', async () => {
