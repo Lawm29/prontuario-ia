@@ -1763,16 +1763,16 @@ async function handleImprove(section) {
     if (!guardOrchestrator()) { setButtonState(section, 'improve', null, false); return; }
     if (!orchestrator.hasAnyKey()) { setButtonState(section, 'improve', null, false); openSettingsModal(true); return; }
     const ctx = getContext();
-    const builder = {
-      anamnese: MedicalPrompts.buildAnamnesePrompt,
-      exameFisico: MedicalPrompts.buildExameFisicoPrompt,
-      diagnostico: MedicalPrompts.buildDiagnosticoPrompt,
-      conduta: MedicalPrompts.buildCondutaPrompt,
-      examesLab: MedicalPrompts.buildExamesLabPrompt,
-      examesImagem: MedicalPrompts.buildExamesImagemPrompt
+    const builderName = {
+      anamnese: 'buildAnamnesePrompt',
+      exameFisico: 'buildExameFisicoPrompt',
+      diagnostico: 'buildDiagnosticoPrompt',
+      conduta: 'buildCondutaPrompt',
+      examesLab: 'buildExamesLabPrompt',
+      examesImagem: 'buildExamesImagemPrompt'
     }[section];
-    if (!builder) { setButtonState(section, 'improve', null, false); return; }
-    const prompt = builder(text, ctx);
+    if (!builderName || typeof MedicalPrompts[builderName] !== 'function') { setButtonState(section, 'improve', null, false); return; }
+    const prompt = MedicalPrompts[builderName](text, ctx);
     await runAI(section, prompt,
       (content, provider) => { showOutput(section, content, provider); setStatus(section, 'success', '✓ Pronto. Revise e edite abaixo se necessário.'); },
       () => setStatus(section, 'loading', '<span class="spinner"></span> Melhorando texto...')
