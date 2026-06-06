@@ -1971,75 +1971,96 @@ class AIOrchestrator {
   }
 
   async callAIWithImage(base64DataUrl, userMessage, systemMessage) {
-    if (!this.isAvailable('gemini')) {
-      const err = new Error('Gemini 2.5 Flash não está configurado ou está em cooldown. Abra ⚙️ no app, adicione a chave do Gemini e desmarque "Primário" se quiser outro padrão, mas o Gemini precisa estar ativo para analisar imagens.');
-      err.isVisionUnavailable = true;
-      throw err;
-    }
-    const provider = AIProviders.gemini;
-    const key = this.config.keys.gemini;
-    const body = {
-      model: provider.model,
-      messages: [
-        { role: 'system', content: systemMessage || MedicalPrompts.SYSTEM_PROMPT_BASE },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userMessage },
-            { type: 'image_url', image_url: { url: base64DataUrl } }
-          ]
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 2048
-    };
-    let response;
-    try {
-      response = await fetch(provider.endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + key,
-          'HTTP-Referer': (typeof window !== 'undefined' && window.location && window.location.origin) || 'https://localhost',
-          'X-Title': 'Prontuario IA'
-        },
-        body: JSON.stringify(body)
-      });
-    } catch (e) {
-      const rawMsg = (e && e.message) || 'sem conexão';
-      const onFileProtocol = (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:');
-      const errorText = String(rawMsg).toLowerCase();
-      const matchesCorsText = /failed to fetch|failed to execute|networkerror|load failed|blocked by cors|access to fetch|has been blocked|cors request did not succeed/.test(errorText);
-      const isLikelyCors = onFileProtocol || matchesCorsText;
-      const friendly = isLikelyCors
-        ? 'Navegador bloqueou a chamada ao Gemini (CORS). Feche esta aba e use o arquivo iniciar.bat — ele inicia um servidor local que libera as chamadas.'
-        : 'Falha de rede ao chamar Gemini: ' + rawMsg;
-      const err = new Error(friendly);
-      err.status = 0; err.provider = 'gemini';
-      err.isCors = isLikelyCors;
-      err.rawMessage = rawMsg;
-      throw err;
-    }
-    if (!response.ok) {
-      let msg = 'HTTP ' + response.status;
-      try {
-        const errJson = await response.json();
-        msg = (errJson && errJson.error && errJson.error.message) || (errJson && errJson.message) || (typeof errJson === 'string' ? errJson : msg);
-      } catch {
-        try { const t = await response.text(); if (t) msg = t.slice(0, 300); } catch { /* ignore */ }
+    const visionChain = [
+      { providerId: 'gemini', model: 'gemini-2.5-flash' },
+      { providerId: 'groq', model: 'llama-3.2-90b-vision-preview' },
+      { providerId: 'openrouter', model: 'meta-llama/llama-3.2-90b-vision-instruct:free' }
+    ];
+    const sysMsg = systemMessage || MedicalPrompts.SYSTEM_PROMPT_BASE;
+    const tried = [];
+    let lastError = null;
+    for (const entry of visionChain) {
+      const pid = entry.providerId;
+      if (!this.isAvailable(pid)) {
+        let reason;
+        if (this.config.enabled[pid] === false) reason = 'desabilitado';
+        else if (!this.config.keys[pid]) reason = 'sem chave';
+        else if (this.isInCooldown(pid)) {
+          const m = Math.ceil(this.getCooldownRemaining(pid) / 60000);
+          reason = 'em cooldown (~' + m + ' min)';
+        } else reason = 'indisponível';
+        tried.push({ providerId: pid, providerName: (AIProviders[pid] && AIProviders[pid].short) || pid, reason });
+        continue;
       }
-      const err = new Error(msg);
-      err.status = response.status; err.provider = 'gemini';
-      throw err;
+      const provider = AIProviders[pid];
+      const key = this.config.keys[pid];
+      const body = {
+        model: entry.model,
+        messages: [
+          { role: 'system', content: sysMsg },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userMessage },
+              { type: 'image_url', image_url: { url: base64DataUrl } }
+            ]
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 2048
+      };
+      let response;
+      try {
+        response = await fetch(provider.endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + key,
+            'HTTP-Referer': (typeof window !== 'undefined' && window.location && window.location.origin) || 'https://localhost',
+            'X-Title': 'Prontuario IA'
+          },
+          body: JSON.stringify(body)
+        });
+      } catch (e) {
+        const rawMsg = (e && e.message) || 'sem conexão';
+        const onFileProtocol = (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:');
+        const errorText = String(rawMsg).toLowerCase();
+        const matchesCorsText = /failed to fetch|failed to execute|networkerror|load failed|blocked by cors|access to fetch|has been blocked|cors request did not succeed/.test(errorText);
+        const isLikelyCors = onFileProtocol || matchesCorsText;
+        lastError = e;
+        tried.push({ providerId: pid, providerName: provider.short, reason: isLikelyCors ? 'CORS bloqueado' : rawMsg, status: 0 });
+        continue;
+      }
+      if (!response.ok) {
+        let msg = 'HTTP ' + response.status;
+        try {
+          const errJson = await response.json();
+          msg = (errJson && errJson.error && errJson.error.message) || (errJson && errJson.message) || (typeof errJson === 'string' ? errJson : msg);
+        } catch {
+          try { const t = await response.text(); if (t) msg = t.slice(0, 300); } catch { /* ignore */ }
+        }
+        lastError = new Error(msg);
+        lastError.status = response.status; lastError.provider = pid;
+        tried.push({ providerId: pid, providerName: provider.short, reason: msg, status: response.status });
+        if (response.status === 401 || response.status === 403) { this.config.enabled[pid] = false; this.saveConfig(); }
+        else if (response.status === 429) { this.markCooldown(pid); }
+        continue;
+      }
+      const json = await response.json();
+      const content = provider.parseResponse(json);
+      if (!content) {
+        lastError = new Error('Resposta vazia do ' + provider.short);
+        lastError.status = 0; lastError.provider = pid;
+        tried.push({ providerId: pid, providerName: provider.short, reason: 'resposta vazia', status: 0 });
+        continue;
+      }
+      return { content, provider: provider.name, providerId: pid };
     }
-    const json = await response.json();
-    const content = provider.parseResponse(json);
-    if (!content) {
-      const err = new Error('Resposta vazia do Gemini');
-      err.status = 0; err.provider = 'gemini';
-      throw err;
-    }
-    return { content, provider: provider.name, providerId: 'gemini' };
+    const err = new Error('Nenhum provedor com visão disponível');
+    err.tried = tried;
+    err.lastError = lastError;
+    err.isVisionUnavailable = true;
+    throw err;
   }
 
   async callAI(userMessage, systemMessage) {
@@ -2366,17 +2387,12 @@ async function handleImageUpload(section, file) {
     if (!proceed) return;
   }
   if (!guardOrchestrator()) return;
-  if (!orchestrator.isAvailable('gemini')) {
-    showErrorModal('Gemini necessário para imagens',
-      'Para analisar imagens (radiografias, fotos de exames, laudos escaneados), você precisa do <strong>Gemini 2.5 Flash</strong> ativo.<br><br>' +
-      '<strong>Como ativar (2 minutos, grátis):</strong><br>' +
-      '1. Obtenha uma chave em <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a> → "Create API key"<br>' +
-      '2. Clique em ⚙️ no topo do app<br>' +
-      '3. Cole a chave do Gemini e marque "Primário"<br>' +
-      '4. Tente anexar a imagem novamente');
+  if (!orchestrator.hasAnyKey()) {
+    setStatus(section, 'error', '⚠️ Nenhum provedor de IA configurado. Abra ⚙️ e adicione ao menos uma chave (Groq ou Gemini).');
+    openSettingsModal(true);
     return;
   }
-  setStatus(section, 'loading', '<span class="spinner"></span> Lendo imagem e enviando ao Gemini...');
+  setStatus(section, 'loading', '<span class="spinner"></span> Lendo imagem e enviando à IA de visão...');
   try {
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -2396,10 +2412,25 @@ async function handleImageUpload(section, file) {
   } catch (err) {
     const errMsg = (err && err.message) || 'desconhecido';
     if (err && err.isVisionUnavailable) {
-      showErrorModal('Gemini indisponível', errMsg);
+      let details = '';
+      if (err.tried && err.tried.length) {
+        details = '<br><br><strong>Tentativas:</strong><br>' +
+          err.tried.map(t => '• ' + t.providerName + ': ' + t.reason).join('<br>');
+      }
+      showErrorModal('Nenhum provedor com visão disponível',
+        'Para analisar imagens, você precisa de pelo menos um provedor que suporte visão.<br><br>' +
+        '<strong>O que fazer:</strong><br>' +
+        '1. Abra ⚙️ (configurações) no topo do app<br>' +
+        '2. Adicione a chave do <strong>Groq</strong> (recomendado, funciona na sua rede)<br>' +
+        '3. Marque o Groq como "Primário", se preferir<br>' +
+        '4. Teste a chave e depois tente anexar a imagem novamente' +
+        details);
     } else {
+      const detailParts = [];
+      if (errMsg) detailParts.push(errMsg);
+      if (err.tried && err.tried.length) detailParts.push('Tentativas: ' + err.tried.map(t => t.providerName + ' (' + t.reason + ')').join('; '));
       setStatus(section, 'error', '❌ Erro ao analisar imagem: ' + errMsg);
-      showErrorModal('Erro ao analisar imagem', (err && err.stack) ? err.stack + '\n\nMensagem: ' + errMsg : errMsg);
+      showErrorModal('Erro ao analisar imagem', detailParts.join('\n\n') || 'Erro desconhecido');
     }
   }
 }
