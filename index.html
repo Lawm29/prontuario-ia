@@ -841,6 +841,7 @@ footer strong { color: var(--warning); }
     <label for="primaryProvider">Provedor primário:</label>
     <select id="primaryProvider">
       <option value="groq">Groq · Llama 3.1 8B</option>
+      <option value="githubmodels">GitHub Models · GPT-4o mini</option>
       <option value="openrouter">OpenRouter · Llama 3.3 70B (free)</option>
     </select>
     <button class="btn btn-icon-only" id="openDiag" title="Diagnóstico do app">🩺</button>
@@ -1167,6 +1168,7 @@ footer strong { color: var(--warning); }
         <strong>Como obter as chaves (todas gratuitas, sem cartão):</strong>
         <ol>
           <li><strong>Groq</strong> (mais rápido): <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> → "Create API Key"</li>
+          <li><strong>GitHub Models</strong> (conta GitHub): <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> → "Generate new token" → marcar <strong>"Models: Read"</strong></li>
           <li><strong>OpenRouter</strong> (coringa): <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> → "Create Key"</li>
         </ol>
       </div>
@@ -1787,10 +1789,26 @@ const AIProviders = {
       max_tokens: 2048
     }),
     parseResponse: (json) => (json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || null
+  },
+  githubmodels: {
+    id: 'githubmodels',
+    name: 'GitHub Models · GPT-4o mini',
+    short: 'GitHub',
+    description: 'Azure AI · key > Settings > Tokens',
+    model: 'gpt-4o-mini',
+    endpoint: 'https://models.inference.ai.azure.com/v1/chat/completions',
+    docsUrl: 'https://github.com/settings/tokens',
+    formatRequest: (model, system, user) => ({
+      model,
+      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      temperature: 0.3,
+      max_tokens: 2048
+    }),
+    parseResponse: (json) => (json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || null
   }
 };
 
-const DEFAULT_CHAIN = ['groq', 'openrouter'];
+const DEFAULT_CHAIN = ['groq', 'githubmodels', 'openrouter'];
 const COOLDOWN_MS = 60 * 60 * 1000;
 
 // Config persists via localStorage (fallback para memória se bloqueado)
@@ -1824,8 +1842,8 @@ class AIOrchestrator {
     }
     return {
       primary: 'groq',
-      keys: { groq: '', openrouter: '' },
-      enabled: { groq: true, openrouter: true }
+      keys: { groq: '', githubmodels: '', openrouter: '' },
+      enabled: { groq: true, githubmodels: true, openrouter: true }
     };
   }
 
@@ -2700,7 +2718,7 @@ function updateProviderInfo() {
   const primaryProvider = AIProviders[primary];
   const hasKey = orchestrator.config.keys[primary] ? '🔑 OK' : '⚠️ sem chave';
   const totalConfigured = Object.values(orchestrator.config.keys).filter(k => k).length;
-  el.textContent = (primaryProvider ? primaryProvider.short : primary) + ' · ' + hasKey + ' · ' + totalConfigured + '/2 provedores configurados';
+  el.textContent = (primaryProvider ? primaryProvider.short : primary) + ' · ' + hasKey + ' · ' + totalConfigured + '/3 provedores configurados';
 }
 
 function buildCopySectionMenu() {
