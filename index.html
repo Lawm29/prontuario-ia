@@ -840,7 +840,6 @@ footer strong { color: var(--warning); }
   <div class="header-controls">
     <label for="primaryProvider">Provedor primário:</label>
     <select id="primaryProvider">
-      <option value="gemini">Gemini 2.5 Flash</option>
       <option value="groq">Groq · Llama 3.3 70B</option>
       <option value="openrouter">OpenRouter · Llama 3.3 70B (free)</option>
     </select>
@@ -1167,7 +1166,6 @@ footer strong { color: var(--warning); }
       <div class="how-to">
         <strong>Como obter as chaves (todas gratuitas, sem cartão):</strong>
         <ol>
-          <li><strong>Gemini</strong> (recomendado): <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">aistudio.google.com/app/apikey</a> → "Create API key"</li>
           <li><strong>Groq</strong> (mais rápido): <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> → "Create API Key"</li>
           <li><strong>OpenRouter</strong> (coringa): <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a> → "Create Key"</li>
         </ol>
@@ -1751,28 +1749,13 @@ Sugira exames como RX, US, TC, RM, endoscopia, ecocardiograma, etc. — relevant
    ===================================================================== */
 
 const AIProviders = {
-  gemini: {
-    id: 'gemini',
-    name: 'Google Gemini 2.5 Flash',
-    short: 'Gemini',
-    description: 'Melhor raciocínio clínico entre os gratuitos · 1.500 req/dia · 10 RPM',
-    model: 'gemini-2.5-flash',
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-    docsUrl: 'https://aistudio.google.com/app/apikey',
-    formatRequest: (model, system, user) => ({
-      model,
-      messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-      temperature: 0.3,
-      max_tokens: 2048
-    }),
-    parseResponse: (json) => (json && json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || null
-  },
   groq: {
     id: 'groq',
     name: 'Groq · Llama 3.3 70B',
     short: 'Groq',
     description: 'Mais rápido · 30 RPM · ótimo raciocínio open-source',
     model: 'llama-3.3-70b-versatile',
+    fallbackModel: 'llama-3.1-8b-instant',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
     docsUrl: 'https://console.groq.com/keys',
     formatRequest: (model, system, user) => ({
@@ -1801,7 +1784,7 @@ const AIProviders = {
   }
 };
 
-const DEFAULT_CHAIN = ['gemini', 'groq', 'openrouter'];
+const DEFAULT_CHAIN = ['groq', 'openrouter'];
 const COOLDOWN_MS = 60 * 60 * 1000;
 
 // In-memory config (sessionStorage é best-effort, pode estar bloqueado em file://)
@@ -1834,9 +1817,9 @@ class AIOrchestrator {
       try { return JSON.parse(saved); } catch (e) { /* fall through */ }
     }
     return {
-      primary: 'gemini',
-      keys: { gemini: '', groq: '', openrouter: '' },
-      enabled: { gemini: true, groq: true, openrouter: true }
+      primary: 'groq',
+      keys: { groq: '', openrouter: '' },
+      enabled: { groq: true, openrouter: true }
     };
   }
 
@@ -1893,7 +1876,7 @@ class AIOrchestrator {
     return chain.filter(id => AIProviders[id]);
   }
 
-  async callSingleProvider(providerId, userMessage, systemMessage) {
+  async callSingleProvider(providerId, userMessage, systemMessage, modelOverride) {
     const provider = AIProviders[providerId];
     if (!provider) throw new Error('Provedor desconhecido: ' + providerId);
     const key = this.config.keys[providerId];
@@ -1902,7 +1885,8 @@ class AIOrchestrator {
       err.status = 0; err.provider = providerId;
       throw err;
     }
-    const body = provider.formatRequest(provider.model, systemMessage, userMessage);
+    const model = modelOverride || provider.model;
+    const body = provider.formatRequest(model, systemMessage, userMessage);
 
     let response;
     try {
@@ -1972,8 +1956,7 @@ class AIOrchestrator {
 
   async callAIWithImage(base64DataUrl, userMessage, systemMessage) {
     const visionChain = [
-      { providerId: 'gemini', model: 'gemini-2.5-flash' },
-      { providerId: 'groq', model: 'llama-3.2-90b-vision-preview' },
+      { providerId: 'groq', model: 'meta-llama/llama-4-scout-17b-16e-instruct' },
       { providerId: 'openrouter', model: 'meta-llama/llama-3.2-90b-vision-instruct:free' }
     ];
     const sysMsg = systemMessage || MedicalPrompts.SYSTEM_PROMPT_BASE;
@@ -2085,8 +2068,22 @@ class AIOrchestrator {
         const result = await this.callSingleProvider(providerId, userMessage, sysMsg);
         return Object.assign({}, result, { tried });
       } catch (e) {
+        const providerDef = AIProviders[providerId];
+        const providerName = (providerDef && providerDef.short) || providerId;
+        if (e.status === 429 && providerDef && providerDef.fallbackModel) {
+          tried.push({ providerId, providerName, reason: 'limite do ' + providerDef.model + ', tentando ' + providerDef.fallbackModel, status: 429 });
+          try {
+            const fb = await this.callSingleProvider(providerId, userMessage, sysMsg, providerDef.fallbackModel);
+            return Object.assign({}, fb, { tried, usedFallbackModel: providerDef.fallbackModel });
+          } catch (e2) {
+            lastError = e2;
+            tried.push({ providerId, providerName, reason: e2.message, status: e2.status });
+            if (e2.status === 429) { this.markCooldown(providerId); }
+          }
+          continue;
+        }
         lastError = e;
-        tried.push({ providerId, providerName: (AIProviders[providerId] && AIProviders[providerId].short) || providerId, reason: e.message, status: e.status });
+        tried.push({ providerId, providerName, reason: e.message, status: e.status });
         if (e.status === 401 || e.status === 403) { this.config.enabled[providerId] = false; this.saveConfig(); }
         else if (e.status === 429) { this.markCooldown(providerId); }
       }
@@ -2114,7 +2111,7 @@ try {
 const $ = (sel, root) => (root || document).querySelector(sel);
 const $$ = (sel, root) => Array.prototype.slice.call((root || document).querySelectorAll(sel));
 
-const state = { primary: 'gemini', initialized: false };
+const state = { primary: 'groq', initialized: false };
 
 function showErrorModal(title, message) {
   const m = $('#errorModal');
@@ -2354,7 +2351,7 @@ async function handlePdfUpload(section, file) {
     }
     if (!fullText.trim()) {
       setStatus(section, 'error', '⚠️ PDF lido, mas sem texto extraível. Provavelmente é um PDF escaneado (só imagens). Tente enviar como imagem (PNG/JPG).');
-      showErrorModal('PDF sem camada de texto', 'O PDF foi lido mas não contém texto extraível (parece ser um PDF escaneado só com imagens). Para analisar este exame, envie como imagem (PNG ou JPG) — o app vai usar a IA Gemini para transcrever.');
+      showErrorModal('PDF sem camada de texto', 'O PDF foi lido mas não contém texto extraível (parece ser um PDF escaneado só com imagens). Para analisar este exame, envie como imagem (PNG ou JPG) — o app vai usar a IA Groq para transcrever.');
       return;
     }
     const inputEl = $('[data-section="' + section + '"] [data-input]');
@@ -2372,7 +2369,7 @@ async function handlePdfUpload(section, file) {
       friendlyMsg = 'O PDF está protegido por senha. Remova a senha e tente novamente, ou envie como imagem.';
     } else if (/InvalidPDF|Invalid PDF structure/i.test(errMsg)) {
       friendlyTitle = 'PDF corrompido ou inválido';
-      friendlyMsg = 'O arquivo não é um PDF válido ou está corrompido. Tente outro arquivo ou envie como imagem (PNG/JPG) — o app vai usar Gemini para transcrever.';
+      friendlyMsg = 'O arquivo não é um PDF válido ou está corrompido. Tente outro arquivo ou envie como imagem (PNG/JPG) — o app vai usar Groq para transcrever.';
     }
     setStatus(section, 'error', friendlyMsg);
     showErrorModal(friendlyTitle, (err && err.stack) ? err.stack + '\n\nMensagem: ' + errMsg : friendlyMsg);
@@ -2388,7 +2385,7 @@ async function handleImageUpload(section, file) {
   }
   if (!guardOrchestrator()) return;
   if (!orchestrator.hasAnyKey()) {
-    setStatus(section, 'error', '⚠️ Nenhum provedor de IA configurado. Abra ⚙️ e adicione ao menos uma chave (Groq ou Gemini).');
+    setStatus(section, 'error', '⚠️ Nenhum provedor de IA configurado. Abra ⚙️ e adicione ao menos uma chave (Groq).');
     openSettingsModal(true);
     return;
   }
@@ -2612,7 +2609,7 @@ function renderProvidersConfig() {
     const div = document.createElement('div');
     div.className = 'provider-config';
     div.dataset.provider = p.id;
-    const cfg = orchestrator ? orchestrator.config : { keys: {}, primary: 'gemini' };
+    const cfg = orchestrator ? orchestrator.config : { keys: {}, primary: 'groq' };
     div.innerHTML =
       '<div class="provider-config-header">' +
         '<span class="status-dot" data-dot></span>' +
@@ -2697,7 +2694,7 @@ function updateProviderInfo() {
   const primaryProvider = AIProviders[primary];
   const hasKey = orchestrator.config.keys[primary] ? '🔑 OK' : '⚠️ sem chave';
   const totalConfigured = Object.values(orchestrator.config.keys).filter(k => k).length;
-  el.textContent = (primaryProvider ? primaryProvider.short : primary) + ' · ' + hasKey + ' · ' + totalConfigured + '/3 provedores configurados';
+  el.textContent = (primaryProvider ? primaryProvider.short : primary) + ' · ' + hasKey + ' · ' + totalConfigured + '/2 provedores configurados';
 }
 
 function buildCopySectionMenu() {
