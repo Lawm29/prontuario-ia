@@ -2636,7 +2636,7 @@ function renderProvidersConfig() {
     const keyInput = div.querySelector('[data-key]');
     const testBtn = div.querySelector('[data-test]');
     const radio = div.querySelector('input[type="radio"]');
-    if (keyInput) keyInput.addEventListener('change', () => { if (orchestrator) { orchestrator.setKey(p.id, keyInput.value); updateProviderInfo(); } });
+    if (keyInput) keyInput.addEventListener('input', () => { if (orchestrator) { orchestrator.setKey(p.id, keyInput.value); updateProviderInfo(); } });
     if (testBtn) testBtn.addEventListener('click', () => testProvider(p.id, div));
     if (radio) radio.addEventListener('change', () => { if (radio.checked && orchestrator) { orchestrator.setPrimary(p.id); updateProviderInfo(); } });
   });
