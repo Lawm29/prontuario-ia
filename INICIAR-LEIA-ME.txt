@@ -1,0 +1,120 @@
+================================================================
+ PRONTUARIO IA - COMO INICIAR
+================================================================
+
+COMO USAR (3 passos):
+---------------------
+
+1. Duplo clique em "iniciar.bat" (este arquivo)
+2. Espere 2-3 segundos. Uma janela preta vai abrir e o
+   navegador vai abrir sozinho.
+3. Use o app normalmente. Para fechar tudo, feche a janela
+   preta do servidor E o navegador.
+
+
+POR QUE EXISTE ESTE ARQUIVO .BAT?
+----------------------------------
+
+Quando você abre o "index.html" direto pelo clique duplo, o
+navegador usa o protocolo "file://". Por segurança, o Chrome
+e o Edge BLOQUEIAM as chamadas de IA nesse modo, mostrando o
+erro "Failed to fetch".
+
+O "iniciar.bat" resolve isso iniciando um mini-servidor
+local (Python) e abrindo o app pelo endereço
+"http://localhost:8000" - que é um endereço HTTP legítimo e
+tem permissão para chamar as APIs de IA.
+
+
+SE DER ERRO "Python nao encontrado":
+-------------------------------------
+
+Instale o Python 3:
+
+1. Acesse: https://www.python.org/downloads/
+2. Clique em "Download Python 3.x.x"
+3. Execute o instalador
+4. IMPORTANTE: Na primeira tela do instalador, MARQUE a
+   caixa "Add Python to PATH" (ou "Adicionar Python ao PATH")
+5. Clique em "Install Now"
+6. Espere terminar
+7. Execute "iniciar.bat" de novo
+
+
+SE O NAVEGADOR NAO ABRIR SOZINHO:
+----------------------------------
+
+Abra manualmente o navegador e digite na barra de endereco:
+
+    http://localhost:8000
+
+
+SE A JANELA PRETA FECHAR SOZINHA:
+----------------------------------
+
+Algo deu errado. Tente:
+1. Abra o Prompt de Comando (Windows + R, digite "cmd", Enter)
+2. Navegue ate a pasta do app:
+   cd C:\Users\lucas\OneDrive\Documents\OpenCode\Trabalho
+3. Rode manualmente:
+   python -m http.server 8000
+4. Veja qual mensagem de erro aparece
+5. Abra o navegador em http://localhost:8000
+
+
+SE O APP MOSTRAR "Failed to fetch" MESMO ASSIM:
+------------------------------------------------
+
+Significa que o navegador continua aberto no modo errado
+(protocolo file://). Como verificar:
+
+1. Olhe o topo da pagina do app. Deve aparecer um BADGE:
+   - VERMELHO escrito "file:// (IA bloqueada)" = modo errado
+   - VERDE escrito "http://localhost:8000" = modo certo
+
+2. Se estiver vermelho, o app abriu pelo arquivo de novo.
+   Solucao: FECHE a aba, va na pasta do app, duplo clique
+   em iniciar.bat (NAO no index.html).
+
+3. Para diagnostico avancado, clique no botao ESTETOSCOPIO
+   (canto superior direito) e use os botoes:
+   - "Testar fetch publico" - verifica se internet funciona
+   - "Testar localhost:8000" - verifica se o servidor subiu
+   - "Testar chamada de IA" - testa a API com sua chave
+
+Se a aba do navegador NAO abriu pelo iniciar.bat (voce
+digitou o endereco na mao, ou o navegador mostrou uma pagina
+de erro antes), o app pode estar rodando no modo file://.
+Nesse caso: FECHE TUDO e use o iniciar.bat de novo.
+
+Se mesmo assim nao funcionar, pode ser firewall/antivirus
+corporativo. Tente:
+- Desative temporariamente o antivirus
+- Ou hospede online (veja README.md, secao "Hospedagem")
+
+
+COMO PARAR O SERVIDOR:
+----------------------
+
+Feche a janela preta que tem o titulo
+"Prontuario IA - Servidor".
+
+Se o app no navegador continuar aberto, ele vai parar de
+funcionar (mensagens de erro). Basta fechar e abrir de novo
+pelo iniciar.bat.
+
+
+CONFIGURAR CHAVES DE API:
+-------------------------
+
+1. Com o app aberto, clique no icone de ENGRENAGEM (canto
+   superior direito)
+2. Recomendado: crie a chave do GEMINI primeiro
+   (link: https://aistudio.google.com/app/apikey)
+3. Cole a chave no campo, clique TESTAR, depois SALVAR
+4. Pronto. Pode usar todos os botoes de IA.
+
+Links das 3 chaves gratuitas (todas sem cartao):
+- Gemini:    https://aistudio.google.com/app/apikey
+- Groq:      https://console.groq.com/keys
+- OpenRouter: https://openrouter.ai/keys
