@@ -840,7 +840,7 @@ footer strong { color: var(--warning); }
   <div class="header-controls">
     <label for="primaryProvider">Provedor primário:</label>
     <select id="primaryProvider">
-      <option value="groq">Groq · Llama 3.3 70B</option>
+      <option value="groq">Groq · Llama 3.1 8B</option>
       <option value="openrouter">OpenRouter · Llama 3.3 70B (free)</option>
     </select>
     <button class="btn btn-icon-only" id="openDiag" title="Diagnóstico do app">🩺</button>
@@ -1270,6 +1270,12 @@ REGRAS DE FORMATAÇÃO (NUNCA VIOLAR — TEXTO DEVE PODER SER COLADO DIRETAMENTE
 ${this.buildContext(ctx)}
 
 TAREFA: Expanda o rascunho abaixo em uma ANAMNESE estruturada, técnica e pronta para colar em sistema hospitalar.
+
+REGRAS ABSOLUTAS CONTRA INVENÇÃO DE DADOS:
+- NUNCA invente sintomas, sinais, localizações, irradiações, características, comorbidades, medicações, exames, valores ou qualquer dado clínico que não esteja EXATAMENTE no rascunho do médico.
+- Se o médico escreveu muito pouco (ex: "febre há 2 dias"), não acrescente nada — escreva exatamente o que foi fornecido, mesmo que a seção fique curta.
+- Nas seções sem informação, escreva "Não informado." — JAMAIS crie uma história clínica fictícia.
+- É PREFERÍVEL uma anamnese incompleta a uma anamnese com dados inventados.
 
 ESTRUTURA OBRIGATÓRIA (use EXATAMENTE estes blocos nesta ordem, com cabeçalhos em MAIÚSCULAS + dois-pontos):
 
@@ -1751,11 +1757,11 @@ Sugira exames como RX, US, TC, RM, endoscopia, ecocardiograma, etc. — relevant
 const AIProviders = {
   groq: {
     id: 'groq',
-    name: 'Groq · Llama 3.3 70B',
+    name: 'Groq · Llama 3.1 8B',
     short: 'Groq',
-    description: 'Mais rápido · 30 RPM · ótimo raciocínio open-source',
-    model: 'llama-3.3-70b-versatile',
-    fallbackModel: 'llama-3.1-8b-instant',
+    description: '200K tok/hora · fallback 70B automático',
+    model: 'llama-3.1-8b-instant',
+    fallbackModel: 'llama-3.3-70b-versatile',
     endpoint: 'https://api.groq.com/openai/v1/chat/completions',
     docsUrl: 'https://console.groq.com/keys',
     formatRequest: (model, system, user) => ({
@@ -1787,20 +1793,20 @@ const AIProviders = {
 const DEFAULT_CHAIN = ['groq', 'openrouter'];
 const COOLDOWN_MS = 60 * 60 * 1000;
 
-// In-memory config (sessionStorage é best-effort, pode estar bloqueado em file://)
+// Config persists via localStorage (fallback para memória se bloqueado)
 let _memConfig = null;
 
 function safeStorageGet(key) {
   try {
-    if (typeof sessionStorage === 'undefined') return null;
-    return sessionStorage.getItem(key);
+    if (typeof localStorage === 'undefined') return null;
+    return localStorage.getItem(key);
   } catch (e) { return null; }
 }
 
 function safeStorageSet(key, value) {
   try {
-    if (typeof sessionStorage === 'undefined') return false;
-    sessionStorage.setItem(key, value);
+    if (typeof localStorage === 'undefined') return false;
+    localStorage.setItem(key, value);
     return true;
   } catch (e) { return false; }
 }
@@ -2763,7 +2769,7 @@ function fillDiagTable() {
     ['AIProviders disponíveis', Object.keys(AIProviders).join(', ')],
     ['Provedor primário', orchestrator ? (AIProviders[orchestrator.config.primary] || {}).name || '?' : '-'],
     ['Chaves configuradas', orchestrator ? Object.entries(orchestrator.config.keys).filter(([k, v]) => v).map(([k]) => AIProviders[k].short).join(', ') || '<span class="diag-warn">nenhuma</span>' : '-'],
-    ['sessionStorage', (function() { try { sessionStorage.setItem('__t', '1'); sessionStorage.removeItem('__t'); return '<span class="diag-ok">✓ disponível</span>'; } catch (e) { return '<span class="diag-warn">⚠ bloqueado (app funciona em memória)</span>'; } })()],
+    ['localStorage', (function() { try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return '<span class="diag-ok">✓ disponível</span>'; } catch (e) { return '<span class="diag-warn">⚠ bloqueado (app funciona em memória)</span>'; } })()],
     ['fetch disponível', typeof fetch === 'function' ? '<span class="diag-ok">✓ sim</span>' : '<span class="diag-fail">✗ não</span>'],
     ['Protocolo', protocolHtml],
     ['URL completa', '<code style="font-size: 11px;">' + escapeHtml(window.location.href) + '</code>'],
