@@ -1794,9 +1794,9 @@ const AIProviders = {
     id: 'githubmodels',
     name: 'GitHub Models · GPT-4o mini',
     short: 'GitHub',
-    description: 'Azure AI · key > Settings > Tokens',
-    model: 'gpt-4o-mini',
-    endpoint: 'https://models.inference.ai.azure.com/v1/chat/completions',
+    description: 'models.github.ai · GPT-4o mini grátis',
+    model: 'openai/gpt-4o-mini',
+    endpoint: 'https://models.github.ai/inference/chat/completions',
     docsUrl: 'https://github.com/settings/tokens',
     formatRequest: (model, system, user) => ({
       model,
@@ -1920,7 +1920,9 @@ class AIOrchestrator {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + key,
           'HTTP-Referer': (typeof window !== 'undefined' && window.location && window.location.origin) || 'https://localhost',
-          'X-Title': 'Prontuario IA'
+          'X-Title': 'Prontuario IA',
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2026-03-10'
         },
         body: JSON.stringify(body)
       });
